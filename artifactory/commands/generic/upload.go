@@ -300,7 +300,7 @@ func recordCommandSummary(servicesManager artifactory.ArtifactoryServicesManager
 	if err != nil {
 		return
 	}
-	return uploadSummary.Record(data)
+	return uploadSummary.RecordMarkdown(data)
 }
 
 // Reads transfer details from the reader and return the content as bytes for further processing

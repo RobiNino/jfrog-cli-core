@@ -15,6 +15,7 @@ import (
 
 type CommandSummaryInterface interface {
 	GenerateMarkdownFromFiles(dataFilePaths []string) (finalMarkdown string, err error)
+	GenerateSarifFromFiles(dataFilePaths []string) (finalSarif string, err error)
 }
 
 const (
@@ -35,7 +36,7 @@ type CommandSummary struct {
 func New(userImplementation CommandSummaryInterface, commandsName string) (cs *CommandSummary, err error) {
 	outputDir := os.Getenv(coreutils.OutputDirPathEnv)
 	if outputDir == "" {
-		return nil, fmt.Errorf("output dir path is not defined,please set the JFROG_CLI_COMMAND_SUMMARY_OUTPUT_DIR environment variable")
+		return nil, fmt.Errorf("output dir path is not defined, please set the JFROG_CLI_COMMAND_SUMMARY_OUTPUT_DIR environment variable")
 	}
 	cs = &CommandSummary{
 		CommandSummaryInterface: userImplementation,
@@ -46,25 +47,37 @@ func New(userImplementation CommandSummaryInterface, commandsName string) (cs *C
 	return
 }
 
-// This function stores the current data on the file system.
-// It then invokes the GenerateMarkdownFromFiles function on all existing data files.
-// Finally, it saves the generated markdown file to the file system.
-func (cs *CommandSummary) Record(data any) (err error) {
-	if err = cs.saveDataToFileSystem(data); err != nil {
-		return
+type generateFunc func([]string) (string, error)
+type saveFunc func(string) error
+
+func (cs *CommandSummary) record(data any, generate generateFunc, save saveFunc, prefix string) error {
+	// TODO in what scenario there is more than one file here? Why need to save, then load?
+	if err := cs.saveDataToFileSystem(data, prefix); err != nil {
+		return err
 	}
 	dataFilesPaths, err := cs.getAllDataFilesPaths()
 	if err != nil {
 		return fmt.Errorf("failed to load data files from directory %s, with error: %w", cs.commandsName, err)
 	}
-	markdown, err := cs.GenerateMarkdownFromFiles(dataFilesPaths)
+
+	// TODO [Error] failed to render markdown: unexpected end of JSON input - what is the cause?
+	content, err := generate(dataFilesPaths)
 	if err != nil {
-		return fmt.Errorf("failed to render markdown: %w", err)
+		return fmt.Errorf("failed to generate content: %w", err)
 	}
-	if err = cs.saveMarkdownToFileSystem(markdown); err != nil {
-		return fmt.Errorf("failed to save markdown to file system: %w", err)
+
+	if err = save(content); err != nil {
+		return fmt.Errorf("failed to save content to file system: %w", err)
 	}
-	return
+	return nil
+}
+
+func (cs *CommandSummary) RecordSarif(data any) error {
+	return cs.record(data, cs.GenerateSarifFromFiles, cs.saveSarifToFileSystem, "sarif")
+}
+
+func (cs *CommandSummary) RecordMarkdown(data any) error {
+	return cs.record(data, cs.GenerateMarkdownFromFiles, cs.saveMarkdownToFileSystem, "markdown")
 }
 
 func (cs *CommandSummary) getAllDataFilesPaths() ([]string, error) {
@@ -82,24 +95,34 @@ func (cs *CommandSummary) getAllDataFilesPaths() ([]string, error) {
 	return filePaths, nil
 }
 
+// TODO does the file name matter?
+func (cs *CommandSummary) saveSarifToFileSystem(sarif string) (err error) {
+	return cs.saveFormatToFileSystem(sarif, "sarif")
+}
+
+// TODO lock because it might be multi threaded
 func (cs *CommandSummary) saveMarkdownToFileSystem(markdown string) (err error) {
-	file, err := os.OpenFile(path.Join(cs.summaryOutputPath, "markdown.md"), os.O_CREATE|os.O_WRONLY, 0644)
+	return cs.saveFormatToFileSystem(markdown, "markdown.md")
+}
+
+func (cs *CommandSummary) saveFormatToFileSystem(content, fileName string) (err error) {
+	file, err := os.OpenFile(path.Join(cs.summaryOutputPath, fileName), os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return errorutils.CheckError(err)
 	}
 	defer func() {
 		err = errors.Join(err, errorutils.CheckError(file.Close()))
 	}()
-	if _, err = file.WriteString(markdown); err != nil {
+	if _, err = file.WriteString(content); err != nil {
 		return errorutils.CheckError(err)
 	}
 	return
 }
 
 // Saves the given data into a file in the specified directory.
-func (cs *CommandSummary) saveDataToFileSystem(data interface{}) error {
+func (cs *CommandSummary) saveDataToFileSystem(data interface{}, prefix string) error {
 	// Create a random file name in the data file path.
-	fd, err := os.CreateTemp(cs.summaryOutputPath, "data-*")
+	fd, err := os.CreateTemp(cs.summaryOutputPath, prefix+"-data-*")
 	if err != nil {
 		return errorutils.CheckError(err)
 	}
@@ -163,7 +186,8 @@ func convertDataToBytes(data interface{}) ([]byte, error) {
 	case []byte:
 		return v, nil
 	default:
-		return json.Marshal(data)
+		content, err := json.Marshal(data)
+		return content, errorutils.CheckError(err)
 	}
 }
 

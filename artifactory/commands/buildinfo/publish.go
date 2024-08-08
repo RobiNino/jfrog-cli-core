@@ -241,5 +241,5 @@ func recordCommandSummary(buildInfo *buildinfo.BuildInfo, buildLink, serverUrl s
 	if err != nil {
 		return
 	}
-	return buildInfoSummary.Record(buildInfo)
+	return buildInfoSummary.RecordMarkdown(buildInfo)
 }
