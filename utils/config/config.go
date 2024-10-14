@@ -13,6 +13,7 @@ import (
 	"github.com/jfrog/jfrog-client-go/auth"
 	distributionAuth "github.com/jfrog/jfrog-client-go/distribution/auth"
 	evidenceAuth "github.com/jfrog/jfrog-client-go/evidence/auth"
+	"github.com/jfrog/jfrog-client-go/http/httpclient"
 	lifecycleAuth "github.com/jfrog/jfrog-client-go/lifecycle/auth"
 	metadataAuth "github.com/jfrog/jfrog-client-go/metadata/auth"
 	pipelinesAuth "github.com/jfrog/jfrog-client-go/pipelines/auth"
@@ -570,32 +571,33 @@ func (o *ConfigV0) Convert() *ConfigV4 {
 }
 
 type ServerDetails struct {
-	Url                             string `json:"url,omitempty"`
-	SshUrl                          string `json:"-"`
-	ArtifactoryUrl                  string `json:"artifactoryUrl,omitempty"`
-	DistributionUrl                 string `json:"distributionUrl,omitempty"`
-	XrayUrl                         string `json:"xrayUrl,omitempty"`
-	XscUrl                          string `json:"xscUrl,omitempty"`
-	MissionControlUrl               string `json:"missionControlUrl,omitempty"`
-	PipelinesUrl                    string `json:"pipelinesUrl,omitempty"`
-	AccessUrl                       string `json:"accessUrl,omitempty"`
-	LifecycleUrl                    string `json:"-"`
-	EvidenceUrl                     string `json:"-"`
-	MetadataUrl                     string `json:"-"`
-	User                            string `json:"user,omitempty"`
-	Password                        string `json:"password,omitempty"`
-	SshKeyPath                      string `json:"sshKeyPath,omitempty"`
-	SshPassphrase                   string `json:"sshPassphrase,omitempty"`
-	AccessToken                     string `json:"accessToken,omitempty"`
-	RefreshToken                    string `json:"refreshToken,omitempty"`
-	ArtifactoryRefreshToken         string `json:"artifactoryRefreshToken,omitempty"`
-	ArtifactoryTokenRefreshInterval int    `json:"tokenRefreshInterval,omitempty"`
-	ClientCertPath                  string `json:"clientCertPath,omitempty"`
-	ClientCertKeyPath               string `json:"clientCertKeyPath,omitempty"`
-	ServerId                        string `json:"serverId,omitempty"`
-	IsDefault                       bool   `json:"isDefault,omitempty"`
-	InsecureTls                     bool   `json:"-"`
-	WebLogin                        bool   `json:"webLogin,omitempty"`
+	Url                             string                     `json:"url,omitempty"`
+	SshUrl                          string                     `json:"-"`
+	ArtifactoryUrl                  string                     `json:"artifactoryUrl,omitempty"`
+	DistributionUrl                 string                     `json:"distributionUrl,omitempty"`
+	XrayUrl                         string                     `json:"xrayUrl,omitempty"`
+	XscUrl                          string                     `json:"xscUrl,omitempty"`
+	MissionControlUrl               string                     `json:"missionControlUrl,omitempty"`
+	PipelinesUrl                    string                     `json:"pipelinesUrl,omitempty"`
+	AccessUrl                       string                     `json:"accessUrl,omitempty"`
+	LifecycleUrl                    string                     `json:"-"`
+	EvidenceUrl                     string                     `json:"-"`
+	MetadataUrl                     string                     `json:"-"`
+	User                            string                     `json:"user,omitempty"`
+	Password                        string                     `json:"password,omitempty"`
+	SshKeyPath                      string                     `json:"sshKeyPath,omitempty"`
+	SshPassphrase                   string                     `json:"sshPassphrase,omitempty"`
+	AccessToken                     string                     `json:"accessToken,omitempty"`
+	RefreshToken                    string                     `json:"refreshToken,omitempty"`
+	ArtifactoryRefreshToken         string                     `json:"artifactoryRefreshToken,omitempty"`
+	ArtifactoryTokenRefreshInterval int                        `json:"tokenRefreshInterval,omitempty"`
+	ClientCertPath                  string                     `json:"clientCertPath,omitempty"`
+	ClientCertKeyPath               string                     `json:"clientCertKeyPath,omitempty"`
+	ServerId                        string                     `json:"serverId,omitempty"`
+	IsDefault                       bool                       `json:"isDefault,omitempty"`
+	InsecureTls                     bool                       `json:"-"`
+	WebLogin                        bool                       `json:"webLogin,omitempty"`
+	KerberosDetails                 httpclient.KerberosDetails `json:"kerberosDetails,omitempty"`
 }
 
 // Deprecated
@@ -638,6 +640,10 @@ func (serverDetails *ServerDetails) SetClientCertPath(certificatePath string) {
 
 func (serverDetails *ServerDetails) SetClientCertKeyPath(certificatePath string) {
 	serverDetails.ClientCertKeyPath = certificatePath
+}
+
+func (serverDetails *ServerDetails) SetKerberosDetails(kerberosDetails httpclient.KerberosDetails) {
+	serverDetails.KerberosDetails = kerberosDetails
 }
 
 func (serverDetails *ServerDetails) GetUrl() string {
@@ -702,6 +708,10 @@ func (serverDetails *ServerDetails) GetClientCertPath() string {
 
 func (serverDetails *ServerDetails) GetClientCertKeyPath() string {
 	return serverDetails.ClientCertKeyPath
+}
+
+func (serverDetails *ServerDetails) GetKerberosDetails() httpclient.KerberosDetails {
+	return serverDetails.KerberosDetails
 }
 
 func (serverDetails *ServerDetails) CreateArtAuthConfig() (auth.ServiceDetails, error) {
@@ -787,6 +797,7 @@ func (serverDetails *ServerDetails) createAuthConfig(details auth.ServiceDetails
 	details.SetClientCertKeyPath(serverDetails.ClientCertKeyPath)
 	details.SetSshKeyPath(serverDetails.SshKeyPath)
 	details.SetSshPassphrase(serverDetails.SshPassphrase)
+	details.SetKerberosDetails(serverDetails.KerberosDetails)
 	return details, nil
 }
 
